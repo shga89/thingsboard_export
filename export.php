@@ -1,43 +1,27 @@
 <?php
-
 include "./PHPExcel-1.8/Classes/PHPExcel.php";
 $spreadsheet = new PHPExcel();
+$timezone = +9;  // Asia/Seoul GMT+9
 
-if (!$_GET["debug"]) {
-	$server = $_GET["server"];
-	$port = $_GET["port"];
-	$userid = $_GET["userid"];
-	$userpass = $_GET["userpass"];
-  $entityType = $entityType;
-  $entityId = $_GET["entityId"];
-  $keys = $_GET["keys"];
-  $startTs = $_GET["startTs"];
-  $endTs = $_GET["endTs"];
-  $interval = $_GET["interval"];
-  $limit = $_GET["limit"];
-  $agg = $_GET["agg"];
-}
-else {
-	$server = "iot.aphese.kr";
-	$port = 8080;
-	$userid = "test@test.com";
-	$userpass = "pass";
-	$entityType = "DEVICE";
-	$entityId = "d02c10b0-3edf-11eb-895a-4f03e5f266ed";
-	$keys = "ZE25_O3";
-	$startTs = "1608287520000";
-	$endTs = "1608287700000";
-	$interval = "1000";
-	$limit = "100";
-	$agg = "AVG";
-} 
+$server = $_GET["server"];
+$port = $_GET["port"];
+$userid = $_GET["userid"];
+$userpass = $_GET["userpass"];
+$entityType = $_GET["entityType"];
+$entityId = $_GET["entityId"];
+$keys = $_GET["keys"];
+$startTs = strtotime($_GET["startTs"])*1000-(60*60*$timezone*1000);
+$endTs = strtotime($_GET["endTs"])*1000-(60*60*$timezone*1000);
+$interval = $_GET["interval"];
+$limit = $_GET["limit"];
+$agg = $_GET["agg"];
 
 /******* Getting JWT_TOKEN *******/
 
-/* curl -X POST "http://iot.aphese.kr:8080/api/auth/login" ^
+/* curl -X POST "http://{server}:{port}/api/auth/login" ^
 	--header "Content-Type: application/json" ^
 	--header "Accept: application/json" ^
-	-d "{\"username\":\"test@test.com\", \"password\":\"pass\"}"
+	-d "{\"username\":\"{userid}\", \"password\":\"{userpass}\"}"
 */
 
 $url = "http://".$server.":".$port."/api/auth/login";
@@ -59,11 +43,12 @@ curl_close($ch);
 
 $data_array = json_decode($response, true);
 $token = $data_array["token"];
+
 /******* Getting Telemetry data *******/
 /*
-curl "http://iot.aphese.kr:8080/api/plugins/telemetry/DEVICE/d02c10b0-3edf-11eb-895a-4f03e5f266ed/values/timeseries?keys=ZE25_O3&startTs=1608287520000&endTs=1608287700000&interval=1000&limit=100&agg=AVG" ^
+curl "http://{server}:{port}:8808/api/plugins/telemetry/{entityType}/{entityId}/values/timeseries?keys={keys}&startTs={startTs}&endTs={endTs}&interval={interval}&limit={limit}&agg={AVG}" ^
 -H "Content-Type:application/json" ^
--H "X-Authorization: Bearer *******"
+-H "X-Authorization: Bearer {token}"
 */
 
 $url = "http://".$server.":".$port."/api/plugins/telemetry/".$entityType."/".$entityId."/values/timeseries?keys=".$keys."&startTs=".$startTs."&endTs=".$endTs."&interval=".$interval."&limit=".$limit."&agg=".$agg;
@@ -105,27 +90,13 @@ foreach ($array as $key_name => $key_name_value){
 
 $spreadsheet -> setActiveSheetIndex(0);  //기본으로 열리는 시트를 1번시트로 지정
 
-$filename = iconv("UTF-8", "EUC-KR", "tb_export.xls");  //한글도 지원하기 위해 iconv 사용
+$filename = iconv("UTF-8", "EUC-KR", "tb_export.xlsx");  //한글도 지원하기 위해 iconv 사용
 
 header("Content-Type:application/vnd.ms-excel");
-header("Content-Disposition: attachment;filename=".$filename.".xls");
+header("Content-Disposition: attachment;filename=".$filename);
 header("Cache-Control:max-age=0");
 
-$objWriter = PHPExcel_IOFactory::createWriter($spreadsheet, "Excel5");
+$objWriter = PHPExcel_IOFactory::createWriter($spreadsheet, "Excel2007");
 $objWriter -> save("php://output");
-/*
-
-$firstLineKeys = false;
-foreach ($array as $line)
-{
-       if (empty($firstLineKeys))
-       {
-           $firstLineKeys = array_keys($line);
-           fputcsv($f, $firstLineKeys);
-           $firstLineKeys = array_flip($firstLineKeys);
-       }
-       // Using array_merge is important to maintain the order of keys acording to the first element
-       fputcsv($f, array_merge($firstLineKeys, $line));
-}*/
 
 ?>
